@@ -80,20 +80,23 @@ describe("sandbox seller onboarding", () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects missing email, tampered cookies, and switching sellers", async () => {
+  it("rejects missing email and tampered cookies", async () => {
     expect((await POST(request({ action: "onboard" }))).status).toBe(400);
     expect((await POST(request({ action: "send", email }))).status).toBe(400);
     cookieValue = "seller%40example.com." + "a".repeat(64);
     expect(await selectedSellerEmail()).toBeNull();
     cookieValue = undefined;
     await POST(request({ action: "onboard", email }));
-    expect((await POST(request({ action: "onboard", email: "other@example.com" }))).status).toBe(403);
+    expect(await selectedSellerEmail()).toBe(email);
   });
 
-  it("does not let another browser take over an existing connected seller", async () => {
+  it("resumes an existing sandbox seller by email in another browser", async () => {
     seller.stripe_account_id = account.id;
-    expect((await POST(request({ action: "onboard", email }))).status).toBe(403);
-    expect(accountLink).not.toHaveBeenCalled();
+    const result = await POST(request({ action: "onboard", email }));
+    expect(result.status).toBe(200);
+    expect(await result.json()).toEqual({ url: "https://connect.stripe.com/setup/fixture" });
+    expect(create).not.toHaveBeenCalled();
+    expect(await selectedSellerEmail()).toBe(email);
   });
 
   it("refreshes a pending seller from Stripe so Buy Now can become available", async () => {

@@ -25,7 +25,7 @@ Keep credentials in `.env.local` and Vercel Production environment variables. Th
 
 ### Seller onboarding
 
-This hiring challenge is sandbox-only and requires no login. A seller enters the email used on a listing and selects **Connect with Stripe**. The server creates or resumes an Express connected account and sends the browser directly to Stripe's hosted onboarding. The email selects matching listings; it is not email verification or identity proof. The browser receives an HTTP-only signed cookie for returning to the local seller dashboard. A different browser cannot reopen an already connected seller with only the email. Do not use this email-only model for live payments; add real seller authentication before accepting live keys. The localhost origin in `.env.local` is for local testing only and must not be the production `NEXT_PUBLIC_APP_URL`.
+This hiring challenge is sandbox-only and requires no login. A seller enters the email used on a listing and selects **Connect with Stripe**. The server creates or resumes an Express connected account and sends the browser directly to Stripe's hosted onboarding. The email selects matching listings; it is not email verification or identity proof. The browser receives an HTTP-only signed cookie for returning to the local seller dashboard. A seller can select the same email in another browser. Do not use this email-only model for live payments; add real seller authentication before accepting live keys. The localhost origin in `.env.local` is for local testing only and must not be the production `NEXT_PUBLIC_APP_URL`.
 
 ### Running the Stripe migration in the Supabase SQL Editor
 
