@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
   const pageSize = 24;
   let query = supabase.from("listings").select("id,title,description,price,email,category,image_path,created_at", { count: "exact" });
   if (category && category !== "All" && CATEGORIES.includes(category as (typeof CATEGORIES)[number])) query = query.eq("category", category);
-  if (search) query = query.or(`title.ilike.%${search.replace(/[%_(),]/g, "")}%,description.ilike.%${search.replace(/[%_(),]/g, "")}%`);
+  const safeSearch = search.replace(/[^\p{L}\p{N}\s-]/gu, "").trim();
+  if (safeSearch) query = query.or(`title.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%`);
   if (sort === "oldest") query = query.order("created_at", { ascending: true });
   else if (sort === "price-asc") query = query.order("price", { ascending: true });
   else if (sort === "price-desc") query = query.order("price", { ascending: false });

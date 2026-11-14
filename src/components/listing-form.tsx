@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { ArrowLeft, ImagePlus, LoaderCircle, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -43,14 +44,14 @@ export function ListingForm() {
           <label className="field-label">Category<select value={values.category} onChange={(e) => field("category", e.target.value)} required><option value="">Choose one</option>{CATEGORIES.map((item) => <option key={item}>{item}</option>)}</select></label></div>
       </section>
       <section className="form-panel"><div className="panel-title"><span>02</span><div><h2>A good photo</h2><p>JPEG, PNG, or WebP · up to 5 MB</p></div></div>
-        {preview ? <div className="photo-preview"><img src={preview} alt="Listing preview"/><button type="button" className="remove-photo" aria-label="Remove photo" onClick={() => setPhoto(null)}><X size={17}/></button></div> : <label className="upload-zone"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseFile}/><span className="upload-icon"><ImagePlus size={22}/></span><strong>Drop a photo here, or <u>browse</u></strong><small>Show off the details that make it special.</small></label>}
+        {preview ? <div className="photo-preview"><Image src={preview} alt="Listing preview" fill unoptimized sizes="(max-width: 700px) 100vw, 500px"/><button type="button" className="remove-photo" aria-label="Remove photo" onClick={() => setPhoto(null)}><X size={17}/></button></div> : <label className="upload-zone"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseFile}/><span className="upload-icon"><ImagePlus size={22}/></span><strong>Drop a photo here, or <u>browse</u></strong><small>Show off the details that make it special.</small></label>}
       </section>
       <section className="form-panel"><div className="panel-title"><span>03</span><div><h2>Where to reach you</h2><p>Buyers can message you about this item.</p></div></div><label className="field-label">Your email<input type="email" value={values.email} onChange={(e) => field("email", e.target.value)} placeholder="you@example.com" required/></label></section>
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="button button-primary submit-listing" disabled={pending}>{pending ? <><LoaderCircle className="spin" size={18}/> Publishing your listing…</> : "Publish listing →"}</button>
       <p className="form-terms">By listing, you agree to be kind, honest, and a good neighbor.</p>
     </form>
-    <aside className="preview-column"><span className="eyebrow muted">YOUR PREVIEW</span><article className="preview-card"><div className="preview-image">{preview ? <img src={preview} alt=""/> : <div className="preview-placeholder"><ImagePlus size={26}/><span>Your photo will appear here</span></div>}<span className="preview-category">{values.category || "CATEGORY"}</span></div><div className="preview-card-info"><strong>{values.price ? formatPrice(Number(values.price)) : "₱0.00"}</strong><h3>{values.title || "Your lovely item"}</h3><p>{values.description || "A little description helps your next person get to know it."}</p><span>Just listed · Around your neighborhood</span></div></article><div className="seller-tip"><span>✦</span><p><strong>A little tip</strong><br/>Natural light makes the best first impression.</p></div></aside>
+    <aside className="preview-column"><span className="eyebrow muted">YOUR PREVIEW</span><article className="preview-card"><div className="preview-image">{preview ? <Image src={preview} alt="" fill unoptimized sizes="330px"/> : <div className="preview-placeholder"><ImagePlus size={26}/><span>Your photo will appear here</span></div>}<span className="preview-category">{values.category || "CATEGORY"}</span></div><div className="preview-card-info"><strong>{values.price ? formatPrice(Number(values.price)) : "₱0.00"}</strong><h3>{values.title || "Your lovely item"}</h3><p>{values.description || "A little description helps your next person get to know it."}</p><span>Just listed · Around your neighborhood</span></div></article><div className="seller-tip"><span>✦</span><p><strong>A little tip</strong><br/>Natural light makes the best first impression.</p></div></aside>
     </div>
   </main>;
 }

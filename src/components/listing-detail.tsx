@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { FormEvent, useEffect, useState } from "react";
 import { ArrowLeft, ArrowUpRight, Check, LoaderCircle, Mail, ShieldCheck, X } from "lucide-react";
 import { formatPrice, messageSchema, type Listing } from "@/lib/marketplace";
@@ -25,7 +26,7 @@ export function ListingDetail({ id }: { id: string }) {
   const date = new Date(listing.created_at).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" });
   return <main className="detail-page"><header className="form-header"><Link className="brand" href="/"><span className="brand-mark">m</span><span>marketday</span></Link><Link className="back-link" href="/"><ArrowLeft size={16}/> Back to browse</Link></header>
     <div className="breadcrumbs"><Link href="/">Marketplace</Link><span>/</span><Link href="/marketplace">{listing.category}</Link><span>/</span><span>{listing.title}</span></div>
-    <div className="detail-layout"><div className="detail-image"><img src={listing.image_url} alt={listing.title}/><span className="detail-image-label">A GOOD FIND, FOUND NEARBY</span></div>
+    <div className="detail-layout"><div className="detail-image"><Image src={listing.image_url} alt={listing.title} fill unoptimized sizes="(max-width: 700px) 100vw, 60vw"/><span className="detail-image-label">A GOOD FIND, FOUND NEARBY</span></div>
       <section className="detail-info"><span className="eyebrow muted">{listing.category.toUpperCase()}</span><h1>{listing.title}</h1><p className="detail-price">{formatPrice(Number(listing.price))}</p><p className="listed-date">Listed {date}</p><div className="detail-description"><h2>The story</h2><p>{listing.description}</p></div>
         <div className="seller-card"><div className="seller-avatar">{listing.email[0]?.toUpperCase()}</div><div className="seller-meta"><span>YOUR NEIGHBOR</span><strong>Seller</strong><a href={`mailto:${listing.email}`}><Mail size={13}/>{listing.email}</a><small><ShieldCheck size={14}/> Email shared for this listing</small></div></div>
         <button className="button button-primary message-button" onClick={() => setOpen(true)}><Mail size={17}/> Message Seller <ArrowUpRight size={16}/></button><p className="detail-reassurance">✦ Be respectful and keep conversations on Marketday.</p>

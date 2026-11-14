@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowDownUp, ArrowRight, Heart, Search, ShoppingBag, Sparkles } from "lucide-react";
 import { CATEGORIES, formatPrice, type Listing } from "@/lib/marketplace";
@@ -62,7 +63,7 @@ export function Marketplace() {
       {status === "error" && <div role="alert" className="state-card error-state"><span>We couldn’t connect just now.</span><p>{error}</p><button className="button button-secondary" onClick={() => void load()}>Try again</button></div>}
       {status === "loading" && <div className="product-grid" aria-label="Loading listings">{Array.from({ length: 8 }, (_, index) => <div className="product-skeleton" key={index}><div/><span/><span/></div>)}</div>}
       {status === "ready" && listings.length > 0 && <div className="product-grid">{listings.map((listing) => <Link className="product-card" href={`/marketplace/${listing.id}`} key={listing.id}>
-        <div className="product-image"><img src={listing.image_url} alt={listing.title}/><span className="image-badge">{listing.category}</span><span className="favorite-mark" aria-hidden="true"><Heart size={18}/></span></div>
+        <div className="product-image"><Image src={listing.image_url} alt={listing.title} fill unoptimized sizes="(max-width: 700px) 50vw, (max-width: 1000px) 33vw, 25vw"/><span className="image-badge">{listing.category}</span><span className="favorite-mark" aria-hidden="true"><Heart size={18}/></span></div>
         <div className="product-info"><span className="product-price">{formatPrice(Number(listing.price))}</span><h3>{listing.title}</h3><span className="product-date">{new Date(listing.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}</span></div>
       </Link>)}</div>}
       {status === "ready" && listings.length === 0 && <div className="state-card empty-state"><span className="empty-icon">✳</span><h3>No finds just yet.</h3><p>Try another search or be the first to list something.</p><Link className="button button-primary" href="/marketplace/new">Create a listing</Link></div>}
