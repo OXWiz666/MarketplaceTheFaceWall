@@ -4,8 +4,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowDownUp, ArrowRight, Search } from "lucide-react";
-import { CATEGORIES, formatPrice, type Listing } from "@/lib/marketplace";
+import { CATEGORIES, FIELD_LIMITS, formatPrice, normalizeSearch, type Listing } from "@/lib/marketplace";
 import { MarketplaceFrame } from "@/components/marketplace-chrome";
+import { BuyNow } from "@/components/stripe/payment-actions";
 
 type ListingCard = Listing & { image_url: string };
 type ApiResult = { listings: ListingCard[]; count: number; page: number; pageSize: number; error?: string; code?: string };
@@ -31,7 +32,7 @@ export function Marketplace() {
     const params = new URLSearchParams(window.location.search);
     const initialCategory = params.get("category");
     if (initialCategory === "All" || CATEGORIES.includes(initialCategory as (typeof CATEGORIES)[number])) setCategory(initialCategory as string);
-    setSearch(params.get("search") ?? "");
+    setSearch(normalizeSearch(params.get("search") ?? ""));
     const initialSort = params.get("sort");
     if (["newest", "oldest", "price-asc", "price-desc"].includes(initialSort ?? "")) setSort(initialSort!);
   }, []);
@@ -39,7 +40,8 @@ export function Marketplace() {
   const load = useCallback(async (signal?: AbortSignal) => {
     setStatus("loading");
     const params = new URLSearchParams({ category, sort });
-    if (search.trim()) params.set("search", search.trim());
+    const term = normalizeSearch(search);
+    if (term) params.set("search", term);
     try {
       const response = await fetch(`/api/listings?${params}`, { signal, cache: "no-store" });
       const result = await response.json() as ApiResult;
@@ -62,11 +64,37 @@ export function Marketplace() {
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [load, search]);
 
+  useEffect(() => {
+    if (status !== "ready") return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ category, sort });
+    const term = normalizeSearch(search);
+    if (term) params.set("search", term);
+    async function refresh() {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const pages = await Promise.all(Array.from({ length: page + 1 }, async (_, index) => {
+          const result = await fetch(`/api/listings?${params}&page=${index}`, { signal: controller.signal, cache: "no-store" });
+          if (!result.ok) throw new Error("Listings are unavailable");
+          return await result.json() as ApiResult;
+        }));
+        if (controller.signal.aborted) return;
+        setListings(Array.from(new Map(pages.flatMap(({ listings }) => listings.map((item) => [item.id, item] as const))).values()));
+        setCount(pages[0].count);
+      } catch { /* Keep the current grid if revalidation fails. */ }
+    }
+    const timer = window.setInterval(() => void refresh(), 30_000);
+    const onFocus = () => void refresh();
+    window.addEventListener("focus", onFocus);
+    return () => { controller.abort(); window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
+  }, [category, page, search, sort, status]);
+
   async function loadMore() {
     setLoadingMore(true);
     try {
       const params = new URLSearchParams({ category, sort, page: String(page + 1) });
-      if (search.trim()) params.set("search", search.trim());
+      const term = normalizeSearch(search);
+      if (term) params.set("search", term);
       const response = await fetch(`/api/listings?${params}`, { cache: "no-store" });
       const result = await response.json() as ApiResult;
       if (!response.ok) throw new Error(apiError(result, "More listings could not be loaded."));
@@ -88,20 +116,22 @@ export function Marketplace() {
 
   const hasMore = listings.length < count;
   return <MarketplaceFrame category={category} onCategoryChange={updateCategory}>
-    <div className="content-heading"><div><p className="heading-kicker">DISCOVER YOUR COMMUNITY</p><h1>{search ? "Search results" : "Today's picks"}</h1><p className="heading-subtitle">Find something you love, right around the corner.</p></div><Link className="button new-listing-button" href="/marketplace/new">+ Create new listing</Link></div>
-    <div className="listing-toolbar"><label className="listing-search"><Search size={18}/><span className="sr-only">Search listings</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search listings"/></label><label className="sort-control"><ArrowDownUp size={16}/><span className="sr-only">Sort listings</span><select value={sort} onChange={(event) => setSort(event.target.value)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option></select></label></div>
+    <div className="content-heading"><div><p className="heading-kicker">DISCOVER YOUR COMMUNITY</p><h1>{search ? "Search results" : "Today's picks"}</h1><p className="heading-subtitle">Find something you love, right around the corner.</p></div><Link className="button new-listing-button" href="/marketplace/new">＋ Create new listing</Link></div>
+    <div className="listing-toolbar"><label className="listing-search"><Search size={18}/><span className="sr-only">Search listings</span><input type="search" maxLength={FIELD_LIMITS.search} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search listings"/></label><label className="sort-control"><ArrowDownUp size={16}/><span className="sr-only">Sort listings</span><select value={sort} onChange={(event) => setSort(event.target.value)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option></select></label></div>
     <nav className="mobile-categories" aria-label="Filter by category"><button className={category === "All" ? "active" : ""} onClick={() => updateCategory("All")}>All</button>{CATEGORIES.map((item) => <button key={item} className={category === item ? "active" : ""} onClick={() => updateCategory(item)}>{item}</button>)}</nav>
     <section className="listing-results" aria-labelledby="results-title"><div className="results-heading"><h2 id="results-title">{search || category !== "All" ? "Marketplace listings" : "Today's picks"}</h2>{status === "ready" && <span>{count} {count === 1 ? "listing" : "listings"}</span>}</div>
       {status === "error" && <div role="alert" className="state-card error-state"><h3>Listings couldn&apos;t be loaded.</h3><p>{error}</p><button className="button secondary-button" onClick={() => void load()}>Try again</button></div>}
       {status === "loading" && <div className="product-grid" aria-label="Loading listings">{Array.from({ length: 10 }, (_, index) => <div className="product-skeleton" key={index}><div/><span/><span/></div>)}</div>}
-      {status === "ready" && listings.length > 0 && <div className="product-grid">{listings.map((listing, index) => <Link className="product-card" href={`/marketplace/${listing.id}`} key={listing.id} style={{ animationDelay: `${Math.min(index * 35, 245)}ms` }}>
-        <div className="product-image"><Image src={listing.image_url} alt={listing.title} fill unoptimized sizes="(max-width: 700px) 50vw, (max-width: 1100px) 33vw, 20vw"/><span className="image-category">{listing.category}</span></div>
-        <div className="product-info"><span className="product-price">{formatPrice(Number(listing.price))}</span><h3>{listing.title}</h3><span className="product-location">{new Date(listing.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric" })} � {listing.category}</span></div>
-      </Link>)}</div>}
-      {status === "ready" && listings.length === 0 && <div className="state-card empty-state"><span className="empty-icon">?</span><h3>No listings found</h3><p>Try a different search, or create the first listing in this category.</p><Link className="button new-listing-button" href="/marketplace/new">Create a listing</Link></div>}
+      {status === "ready" && listings.length > 0 && <div className="product-grid">{listings.map((listing, index) => <article className="product-card" key={listing.id} style={{ animationDelay: `${Math.min(index * 35, 245)}ms` }}>
+        <Link className="product-link" href={`/marketplace/${listing.id}`}>
+        <div className="product-image"><Image src={listing.image_url} alt={listing.title} fill unoptimized sizes="(max-width: 700px) 50vw, (max-width: 1100px) 33vw, 20vw"/><span className="image-category">{listing.category}</span>{listing.payment === "sold" && <span className="payment-badge sold-overlay">Sold</span>}</div>
+        <div className="product-info"><span className="product-price">{formatPrice(Number(listing.price))}</span><h3>{listing.title}</h3><span className="product-location">{new Date(listing.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric" })} · {listing.category}</span></div>
+        </Link>
+        {listing.payment !== "sold" && <div className="card-payment"><BuyNow listingId={listing.id} availability={listing.payment}/></div>}
+      </article>)}</div>}
+      {status === "ready" && listings.length === 0 && <div className="state-card empty-state"><span className="empty-icon">⌕</span><h3>No listings found</h3><p>Try a different search, or create the first listing in this category.</p><Link className="button new-listing-button" href="/marketplace/new">Create a listing</Link></div>}
       {error && status === "ready" && <p className="inline-error" role="alert">{error}</p>}
-      {status === "ready" && hasMore && <div className="load-more-wrap"><button className="button secondary-button load-more" onClick={() => void loadMore()} disabled={loadingMore}>{loadingMore ? "Loading." : "See more listings"}<ArrowRight size={16}/></button></div>}
+      {status === "ready" && hasMore && <div className="load-more-wrap"><button className="button secondary-button load-more" onClick={() => void loadMore()} disabled={loadingMore}>{loadingMore ? "Loading…" : "See more listings"}<ArrowRight size={16}/></button></div>}
     </section>
   </MarketplaceFrame>;
 }
-

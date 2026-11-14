@@ -1,66 +1,72 @@
 # TheFaceWall Marketplace
 
-A responsive community marketplace for TheFaceWall Marketplace hiring challenge. Visitors can publish an item with a photo, browse and filter listings, open a dedicated detail page, and send a message that is saved with the listing.
+A community marketplace for TheFaceWall hiring challenge. Visitors can publish a listing with a photo, browse and filter items, message a seller, and buy eligible listings through Stripe Checkout in sandbox mode.
 
-## Hiring-test requirements
+## Setup
 
-| Requirement | Implementation |
+1. Use Node.js 22 or newer and run `npm ci`.
+2. Copy `.env.example` to `.env.local`. Add the Supabase project URL, publishable key, and server-only service-role key. The legacy Supabase anon key also works for public browsing.
+3. Apply the SQL files in `supabase/migrations/` in filename order. If the Test 3 schema is already installed, apply only the new Stripe migration. Existing listings keep their data and use their normalized seller email to match Stripe accounts.
+4. Add the hiring challenge's Stripe test secret. Set `NEXT_PUBLIC_APP_URL` to the exact origin where the app runs. Use the public HTTPS origin for hosted Stripe onboarding and production webhook registration.
+5. Run `npm run dev` and open the configured origin.
+
+| Variable | Purpose |
 | --- | --- |
-| Create Listing | `/marketplace/new` validates listing fields and a photo, checks the image content, uploads to Supabase Storage, saves the row in Postgres, then opens the new detail page. |
-| Browse and Filter | `/` and `/marketplace` read paginated listings from Supabase, default to newest first, and support categories, case-insensitive title/description search, and sorting. |
-| Listing Detail | `/marketplace/[id]` displays the image, full listing data, seller email contact context, category and date, with a friendly missing-record state. |
-| Message Seller | The detail page opens an accessible message dialog; validated messages are inserted in `seller_messages` with the correct listing UUID. The success state appears only after Supabase confirms the insert. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public project key for Marketplace operations |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only database access for payments and private seller data |
+| `STRIPE_SECRET_KEY` | Server-only Stripe sandbox API key beginning with `sk_test_` or `rk_test_` |
+| `STRIPE_WEBHOOK_SECRET` | Server-only signing secret for the Connect endpoint |
+| `STRIPE_PLATFORM_FEE_PERCENT` | Defaults to 10 and supports up to two decimal places |
+| `NEXT_PUBLIC_APP_URL` | Marketplace origin used for Stripe return URLs |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Optional with hosted Checkout. The browser redirects to Stripe using the server-issued URL. |
 
-## Stack
+Keep credentials in `.env.local` and Vercel Production environment variables. The app rejects live Stripe keys and events.
 
-Next.js App Router, React, TypeScript (strict), Tailwind-ready custom CSS, Supabase Postgres and Storage, Zod, Vitest, Testing Library, and ESLint.
+### Seller onboarding
 
-## Local setup
+This hiring challenge is sandbox-only and requires no login. A seller enters the email used on a listing and selects **Connect with Stripe**. The server creates or resumes an Express connected account and sends the browser directly to Stripe's hosted onboarding. The email selects matching listings; it is not email verification or identity proof. The browser receives an HTTP-only signed cookie for returning to the local seller dashboard. A different browser cannot reopen an already connected seller with only the email. Do not use this email-only model for live payments; add real seller authentication before accepting live keys. The localhost origin in `.env.local` is for local testing only and must not be the production `NEXT_PUBLIC_APP_URL`.
 
-1. Install Node.js 20.9 or later and npm.
-2. Run `npm install`.
-3. Copy `.env.example` to `.env.local` and fill in the Supabase project URL and service-role key.
-4. Apply `supabase/migrations/202611140001_marketplace.sql` in the Supabase SQL Editor or with the Supabase CLI.
-5. Run `npm run dev` and open `http://localhost:3000`.
+### Running the Stripe migration in the Supabase SQL Editor
 
-The API returns a clear 503 message until its server-side Supabase configuration is present. It does not substitute mock listings or local storage for database operations. Do not prefix the service-role key with `NEXT_PUBLIC_` or commit it.
+Open a new query, paste the entire `20261114115759_stripe_connect.sql` file, and run it with no text selected. The migration enables RLS for its payment tables directly. If the editor offers to append RLS statements, run the file as pasted. The migration can be rerun after a partial application.
 
-## Supabase setup and security
+## Payment flow
 
-- Create a Supabase project and run the migration.
-- Copy the project URL and the `service_role` key from Project Settings → API into `.env.local` / Vercel environment variables.
-- The migration creates `listings`, `seller_messages`, indexes, the public image bucket, and enables RLS. Anonymous table permissions are revoked; all reads and writes go through validated server routes using the server-only service key.
-- The `marketplace-images` bucket allows public image reads, caps images at 5 MB, and accepts JPEG, PNG, and WebP. Anonymous object uploads and deletes are not permitted. The listing endpoint verifies the actual file signature before uploading and removes an image if the listing insert fails.
-- Buyer messages are private: no anonymous table-read policy is created. Messages are never returned by the public API.
+1. Sellers open **Connect with Stripe**, enter the email used on their listing, and complete the hosted sandbox onboarding. The seller dashboard shows **Payments enabled** once Stripe confirms the account can take card payments. Once setup is complete, **Open Stripe dashboard** creates an Express dashboard login link.
+2. Stripe hosts onboarding for new Express connected accounts created with the platform's sandbox key. Sellers do not need an existing Stripe account. The app checks the connected account's status on return and on `account.updated`. Existing listings become eligible when card payments are active and details have been submitted.
+3. **Buy Now** reserves the item in Postgres and opens a hosted card Checkout Session on the connected account. Postgres converts the listing's PHP price to centavos and rounds the fee half-up. A ₱100.00 listing yields a ₱10.00 application fee and ₱90.00 in seller proceeds before Stripe processing fees.
+4. A signed Connect event verifies the session, account, listing, amount, and currency before atomically marking an order **Paid** and the listing **Sold**. The success screen polls the order and can reconcile a delayed webhook against Stripe's connected-account session.
+5. Checkout reserves an item for up to 40 minutes. Closing Checkout from the cancellation page expires the matching Stripe session before releasing the item. Abandoned sessions release via an expiry event or a later checkout's Stripe-backed recovery check. Fully refunded items stay sold and appear as refunded in seller history.
 
-## Environment variables
+The Supabase payment tables and mutation functions are service-role only. Public listing APIs return availability without Stripe account IDs or private order information. Declined cards can be retried through the same Stripe Checkout while it remains open. Checkout currently accepts cards and preserves the existing PHP listing currency. Stripe may impose a higher minimum charge based on the connected account’s settlement currency.
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-```
+## Deploy and register the webhook
 
-No email delivery provider is configured. The seller-message success notice confirms database persistence only; it does not claim an email was sent.
+1. Configure the Supabase project and set the environment variables on the Marketplace Vercel project. Deploy from the intended production branch.
+2. With the Stripe sandbox key in `.env.local`, register the endpoint using your public Vercel production origin. The script checks that the deployed handler answers an unsigned POST with HTTP 400 before creating the Connect endpoint.
 
-## Commands
+   ```sh
+   node --env-file=.env.local scripts/create-webhook.mjs --origin https://marketplacethefacewall.vercel.app
+   ```
 
-```bash
-npm run dev
+   Omit `--origin` when `NEXT_PUBLIC_APP_URL` already points to the public deployment. The flag lets local development keep its localhost origin. The endpoint subscribes to `checkout.session.completed`, `account.updated`, and the events the app uses for expired sessions, asynchronous Checkout outcomes, and full refunds. If an endpoint already exists for that URL, verify its Connect scope and subscriptions in Stripe.
+3. Copy the generated signing secret to `STRIPE_WEBHOOK_SECRET` in `.env.local` and Vercel Production, then redeploy. Keep the registration output private. A local Stripe CLI listener uses its own signing secret.
+4. Verify the production deployment with the sandbox walkthrough below. For a usable reviewer demo, create two test listings under the same onboarded seller so one remains available after your purchase test.
+
+## Verification
+
+```sh
 npm run lint
 npm run typecheck
-npm run test
+npm test
 npm run build
-npm start
 ```
 
-Tests cover shared listing/message validation and marketplace filtering. To prove real persistence, configure Supabase, apply the migration, create a listing and message, then reload the listing and confirm both records in the database. Automated unit tests alone do not prove Supabase connectivity.
+The tests exercise the actual SQL migrations in embedded PostgreSQL, signed webhook fixtures with the Stripe SDK, direct seller onboarding, checkout request validation, and the existing Marketplace validation and filters.
 
-## Vercel deployment
+Playwright browser checks are in `e2e/stripe.spec.mjs`. Install `@playwright/test` as a dev dependency and run `npx playwright install chromium`, then `npx playwright test`. Set `STRIPE_E2E_BASE_URL` to the public deployment origin when checking Vercel. Set `STRIPE_E2E_UNCONNECTED_LISTING_ID` and `STRIPE_E2E_LISTING_ID` to exercise real listing availability and the redirect to Stripe Checkout. The latter must be an active listing from a seller who completed sandbox onboarding; opening Checkout reserves it temporarily. Card entry and paid webhook delivery require a manual sandbox purchase and an installed webhook endpoint.
 
-Import this repository into Vercel, set the two environment variables above for Production and Preview, apply the migration to the connected Supabase project, then deploy. Dynamic listing pages and API routes use the configured Supabase project. No live deployment has been performed from this repository.
+For the full sandbox walkthrough, create a listing with a photo and confirm it appears after refresh, through category and keyword filters, and on its detail page. Send a test seller message and confirm the row in Supabase. Complete Stripe-hosted onboarding and confirm the existing listing gains Buy Now. Buy it with `4242 4242 4242 4242`, a future expiry, any three-digit CVC, and a test email. Check the charge and application fee in Stripe sandbox, the paid Supabase order, the webhook delivery, and the Sold badge after refreshing. On a second test item, cancel and close Checkout, then verify the item is available again. Test two simultaneous buyers on a third listing and verify only one Stripe Checkout opens.
 
-## Known limitations
-
-- No sign-in, seller ownership verification, email notification, or moderation workflow is included, as the challenge does not require them.
-- In-memory request throttling is best-effort and resets when a serverless instance restarts. Add a shared rate-limit store before operating this as a high-traffic public marketplace.
-- Supabase credentials and a live project are required to verify listing, image, and message persistence end-to-end.
+See [reviewer notes](docs/stripe-reviewer.md) for the submission walkthrough. The demo listing, sandbox evidence screenshots, and deployed URL should be verified against the final deployment before submitting.
