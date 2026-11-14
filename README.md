@@ -28,7 +28,7 @@ The API returns a clear 503 message until its server-side Supabase configuration
 ## Supabase setup and security
 
 - Create a Supabase project and run the migration.
-- Copy the project URL and the `service_role` key from Project Settings  API into `.env.local` / Vercel environment variables.
+- Copy the project URL and the `service_role` key from Project Settings → API into `.env.local` / Vercel environment variables.
 - The migration creates `listings`, `seller_messages`, indexes, the public image bucket, and enables RLS. Anonymous table permissions are revoked; all reads and writes go through validated server routes using the server-only service key.
 - The `marketplace-images` bucket allows public image reads, caps images at 5 MB, and accepts JPEG, PNG, and WebP. Anonymous object uploads and deletes are not permitted. The listing endpoint verifies the actual file signature before uploading and removes an image if the listing insert fails.
 - Buyer messages are private: no anonymous table-read policy is created. Messages are never returned by the public API.
@@ -64,4 +64,3 @@ Import this repository into Vercel, set the two environment variables above for 
 - No sign-in, seller ownership verification, email notification, or moderation workflow is included, as the challenge does not require them.
 - In-memory request throttling is best-effort and resets when a serverless instance restarts. Add a shared rate-limit store before operating this as a high-traffic public marketplace.
 - Supabase credentials and a live project are required to verify listing, image, and message persistence end-to-end.
-
