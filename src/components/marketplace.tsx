@@ -43,7 +43,7 @@ export function Marketplace() {
 
   return <main className="site-shell">
     <header className="topbar">
-      <Link href="/" className="brand" aria-label="Marketday home"><span className="brand-mark">m</span><span>marketday</span></Link>
+      <Link href="/" className="brand" aria-label="TheFaceWall Marketplace home"><span className="brand-mark">F</span><span>TheFaceWall Marketplace</span></Link>
       <nav className="main-nav"><Link className="nav-active" href="/marketplace"><ShoppingBag size={17}/> Browse</Link></nav>
       <div className="top-actions"><Link href="/marketplace/new" className="button button-primary sell-button">＋ Sell an item</Link></div>
     </header>
@@ -68,6 +68,6 @@ export function Marketplace() {
       </Link>)}</div>}
       {status === "ready" && listings.length === 0 && <div className="state-card empty-state"><span className="empty-icon">✳</span><h3>No finds just yet.</h3><p>Try another search or be the first to list something.</p><Link className="button button-primary" href="/marketplace/new">Create a listing</Link></div>}
     </section>
-    <footer className="site-footer"><Link href="/" className="brand"><span className="brand-mark">m</span><span>marketday</span></Link><span>Good things find good homes.</span><Link href="/marketplace/new">Have something to sell? <ArrowRight size={14}/></Link></footer>
+    <footer className="site-footer"><Link href="/" className="brand" aria-label="TheFaceWall Marketplace home"><span className="brand-mark">F</span><span>TheFaceWall Marketplace</span></Link><span>Good things find good homes.</span><Link href="/marketplace/new">Have something to sell? <ArrowRight size={14}/></Link></footer>
   </main>;
 }

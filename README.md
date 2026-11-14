@@ -1,6 +1,6 @@
-# Marketday
+# TheFaceWall Marketplace
 
-A responsive community marketplace built for the Test 3 Marketplace hiring challenge. Visitors can publish an item with a photo, browse and filter listings, open a dedicated detail page, and send a message that is saved with the listing.
+A responsive community marketplace for TheFaceWall Marketplace hiring challenge. Visitors can publish an item with a photo, browse and filter listings, open a dedicated detail page, and send a message that is saved with the listing.
 
 ## Hiring-test requirements
 
