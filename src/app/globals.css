@@ -12,3 +12,4 @@
 @media(max-width:380px){.site-shell{padding:0 13px}.hero h1{font-size:46px}.product-grid{gap:18px 9px}.sell-button{font-size:10px;padding:0 10px}.form-page,.detail-page{padding-left:13px;padding-right:13px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 .seller-meta a{display:flex;align-items:center;gap:5px;color:#547762;font-size:10px}
+@media(max-width:700px){.sort-select{min-width:138px;width:138px;padding:0 10px}.sort-select select{position:static;opacity:1;width:100%;height:auto;font-size:10px}}
